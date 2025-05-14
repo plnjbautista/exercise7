@@ -3,7 +3,7 @@ import numpy as np
 import re
 import string
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.pipeline import Pipeline
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
@@ -14,7 +14,6 @@ from nltk.stem import WordNetLemmatizer
 import nltk
 import contractions
 
-# Download necessary NLTK resources
 try:
     nltk.data.find('corpora/stopwords')
     nltk.data.find('corpora/wordnet')
@@ -42,11 +41,9 @@ print(data.isnull().sum())
 columns = data.columns.tolist()
 print(f"\nDetected columns: {columns}")
 
-# Dynamically identify text and sentiment columns
-# Assuming first column is text and second column is sentiment
-# Adjust these assignments based on the actual column names in your CSV
-text_column = columns[0]  # First column for text
-sentiment_column = columns[1]  # Second column for sentiment
+# Identify text and sentiment columns
+text_column = columns[0] 
+sentiment_column = columns[1]
 
 print(f"\nUsing '{text_column}' as the text column")
 print(f"Using '{sentiment_column}' as the sentiment column")
@@ -67,13 +64,10 @@ def preprocess_text(text):
     # Convert text to lowercase
     text = text.lower()
     
-    # Expand contractions (e.g., "can't" -> "cannot")
+    # Expand contractions (e.g., "can't" to "cannot")
     text = contractions.fix(text)
     
-    # Remove URLs
-    text = re.sub(r'http\S+|www\S+|https\S+', '', text)
-    
-    # Handle numbers - replace with word 'number'
+    # Handle numbers (replace with word 'number')
     text = re.sub(r'\d+', 'number', text)
     
     # Remove punctuation
@@ -95,7 +89,7 @@ def preprocess_text(text):
     
     return cleaned_text
 
-# Apply preprocessing to the text column
+# Apply preprocessing to the text
 print("\nApplying text preprocessing...")
 data['cleaned_text'] = data[text_column].apply(preprocess_text)
 
@@ -117,60 +111,42 @@ X_train, X_test, y_train, y_test = train_test_split(
 print(f"\nTraining set size: {len(X_train)}")
 print(f"Testing set size: {len(X_test)}")
 
-# Create a pipeline with CountVectorizer and Naive Bayes
-print("\nBuilding and training the Naive Bayes model...")
-nb_pipeline = Pipeline([
-    ('vectorizer', CountVectorizer(ngram_range=(1, 2))),  # Using unigrams and bigrams
+# Build the TF-IDF + Naive Bayes pipeline
+print("\nBuilding and training the TF-IDF + Naive Bayes model...")
+tfidf_pipeline = Pipeline([
+    ('vectorizer', TfidfVectorizer(ngram_range=(1, 2))),  # Using TF-IDF 
     ('classifier', MultinomialNB())
 ])
 
 # Train the model
-nb_pipeline.fit(X_train, y_train)
+tfidf_pipeline.fit(X_train, y_train)
 
 # Make predictions
-y_pred = nb_pipeline.predict(X_test)
+y_pred = tfidf_pipeline.predict(X_test)
 
 # Evaluate the model
 print("\nModel Evaluation:")
 accuracy = accuracy_score(y_test, y_pred)
-print(f"Accuracy: {accuracy*100:.2f}%")
+print(f"Accuracy: {accuracy:.2f} or {accuracy*100:.2f}%")
 
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
 
-# Additional Evaluation Metrics (Precision, Recall, F1-Score)
 precision = precision_score(y_test, y_pred, pos_label='positive')
 recall = recall_score(y_test, y_pred, pos_label='positive')
 f1 = f1_score(y_test, y_pred, pos_label='positive')
 
 print("\nAdditional Metrics:")
-print(f"Precision: {precision*100:.2f}%")
-print(f"Recall: {recall*100:.2f}%")
-print(f"F1-Score: {f1*100:.2f}%")
+print(f"Precision: {precision:.2f} or {precision*100:.2f}%")
+print(f"Recall: {recall:.2f} or {recall*100:.2f}%")
+print(f"F1-Score: {f1:.2f} or {f1*100:.2f}%")
 
-# Create confusion matrix
-cm = confusion_matrix(y_test, y_pred)
-plt.figure(figsize=(8, 6))
-sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=np.unique(y_test), yticklabels=np.unique(y_test))
-plt.xlabel('Predicted')
-plt.ylabel('Actual')
-plt.title('Confusion Matrix')
-plt.tight_layout()
-plt.savefig('confusion_matrix.png')
-print("Confusion matrix saved as 'confusion_matrix.png'")
-
-# Feature importance - get the most informative features for each class
-vectorizer = nb_pipeline.named_steps['vectorizer']
-classifier = nb_pipeline.named_steps['classifier']
-
-feature_names = vectorizer.get_feature_names_out()
-class_labels = classifier.classes_
+# Feature importance analysis
+vectorizer = tfidf_pipeline.named_steps['vectorizer']
+classifier = tfidf_pipeline.named_steps['classifier']
 
 # Get feature importance for each class
 def get_most_informative_features(vectorizer, classifier, n=20):
-    """
-    Print the most informative features for each class
-    """
     feature_names = vectorizer.get_feature_names_out()
     class_labels = classifier.classes_
     
@@ -185,11 +161,9 @@ def get_most_informative_features(vectorizer, classifier, n=20):
 # Print the most informative features
 get_most_informative_features(vectorizer, classifier)
 
-# Create a function to classify new text
-def classify_sentiment(text, pipeline=nb_pipeline):
-    """
-    Classify the sentiment of a given text
-    """
+# Classify new text
+def classify_sentiment(text, pipeline=tfidf_pipeline):
+
     # Preprocess the text
     processed_text = preprocess_text(text)
     
@@ -205,19 +179,16 @@ def classify_sentiment(text, pipeline=nb_pipeline):
         'probabilities': prob_dict
     }
 
-# Test the function with some sample texts
-sample_texts = [
-    "The coffee was absolutely delicious!",
-    "Terrible service and the food was cold.",
-    "I can't complain about anything, it was perfect!",
-    "The atmosphere was nice but the prices were too high.",
-    "Didn't enjoy my experience. Won't be returning."
-]
-
-print("\nTesting the classifier with sample texts:")
-for text in sample_texts:
-    result = classify_sentiment(text)
-    print(f"Text: {text}")
-    print(f"Predicted sentiment: {result['sentiment']}")
-    print(f"Probability scores: {result['probabilities']}")
-    print("-" * 50)
+# Display predictions on the test set
+print("\nTesting the classifier")
+for i in range(5):  # Show first 5 samples
+    review = X_test.iloc[i]
+    true_label = y_test.iloc[i]
+    predicted_label = y_pred[i]
+    positive_prob = tfidf_pipeline.predict_proba([review])[0][list(tfidf_pipeline.classes_).index('positive')]
+    negative_prob = tfidf_pipeline.predict_proba([review])[0][list(tfidf_pipeline.classes_).index('negative')]
+    
+    print(f"Review #{i+1}: {review}")
+    print(f"True Sentiment: {true_label}")
+    print(f"Predicted Sentiment: {predicted_label}")
+    print(f"Confidence - Positive: {positive_prob:.2f}, Negative: {negative_prob:.2f}")
