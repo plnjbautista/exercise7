@@ -4,24 +4,16 @@ import torch.optim as optim
 import numpy as np
 from collections import defaultdict
 from sklearn.metrics import classification_report, accuracy_score, precision_recall_fscore_support
+from collections import Counter
 
 # Training data
-training_data = [
-    [('Manila', 'NOUN'), ('is', 'VERB'), ('the', 'DET'), ('capital', 'NOUN'), ('of', 'NOUN'), ('Philippines', 'NOUN')],
-    [('Cebu', 'NOUN'), ('attracts', 'VERB'), ('many', 'ADJ'), ('tourists', 'NOUN'), ('annually', 'ADV')],
-    [('The', 'DET'), ('Filipino', 'ADJ'), ('cuisine', 'NOUN'), ('features', 'VERB'), ('tropical', 'ADJ'), ('fruits', 'NOUN')],
-    [('Boracay', 'NOUN'), ('has', 'VERB'), ('beautiful', 'ADJ'), ('white', 'ADJ'), ('beaches', 'NOUN')],
-    [('Tagalog', 'NOUN'), ('is', 'VERB'), ('an', 'DET'), ('official', 'ADJ'), ('language', 'NOUN')],
-    [('President', 'NOUN'), ('Marcos', 'NOUN'), ('governs', 'VERB'), ('the', 'DET'), ('country', 'NOUN')],
-    [('Jeepneys', 'NOUN'), ('provide', 'VERB'), ('unique', 'ADJ'), ('transportation', 'NOUN'), ('options', 'NOUN')],
-    [('Manny', 'NOUN'), ('Pacquiao', 'NOUN'), ('represented', 'VERB'), ('Filipino', 'ADJ'), ('boxing', 'NOUN'), ('internationally', 'ADV')]
-]
+from training_data_pos import training_data
 
 # Create word-to-index and tag-to-index mappings
-word_to_idx = {}
-tag_to_idx = {}
-word_idx = 0
-tag_idx = 0
+word_to_idx = {'<PAD>': 0}
+tag_to_idx = {'<PAD>': 0}
+word_idx = 1
+tag_idx = 1
 
 for sentence in training_data:
     for word, tag in sentence:
@@ -55,7 +47,7 @@ y_train_tensor = torch.tensor(y_train_padded, dtype=torch.long)
 
 # Define the RNN Model
 class POS_RNN(nn.Module):
-    def __init__(self, vocab_size, tagset_size, embedding_dim=100, hidden_dim=128):
+    def __init__(self, vocab_size, tagset_size, embedding_dim=200, hidden_dim=256):
         super(POS_RNN, self).__init__()
         
         # Define layers
@@ -73,11 +65,19 @@ class POS_RNN(nn.Module):
 model = POS_RNN(vocab_size=len(word_to_idx), tagset_size=len(tag_to_idx))
 
 # Hyperparameters
-epochs = 20
-learning_rate = 0.1
+epochs = 50
+learning_rate = 0.001
+
+# Flatten your label list to count class frequencies
+all_labels = [tag for sent in y_train for tag in sent]
+label_counts = Counter(all_labels)
+
+# Create a list of counts aligned with tag indices (e.g., [count for 0, 1, 2...])
+class_counts = [label_counts.get(i, 1) for i in range(len(tag_to_idx))]  # avoid div by 0
+weights = torch.tensor(1.0 / np.array(class_counts), dtype=torch.float)
 
 # Loss and optimizer
-criterion = nn.CrossEntropyLoss(ignore_index=0)  # Ignore padding index (0)
+criterion = nn.CrossEntropyLoss(weight=weights, ignore_index=0)
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
 # Training loop
@@ -165,6 +165,19 @@ print(f"Recall:    {recall:.4f}")
 print(f"F1-Score:  {f1:.4f}")
 
 # Detailed classification report
-report = classification_report(all_true_labels, all_predictions, zero_division=0)
+report = classification_report(all_true_labels, all_predictions, zero_division=0, digits=4, output_dict=True)
 print("\n--- Classification Report ---\n")
-print(report)
+import pandas as pd
+df_report = pd.DataFrame(report).transpose()
+print(df_report.sort_values('support', ascending=False))
+
+from sklearn.metrics import ConfusionMatrixDisplay, confusion_matrix
+import matplotlib.pyplot as plt
+
+cm = confusion_matrix(all_true_labels, all_predictions, labels=list(tag_to_idx.keys()))
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=list(tag_to_idx.keys()))
+disp.plot(cmap='Blues', xticks_rotation=45)
+plt.show()
+
+from sklearn.metrics import classification_report
+print(classification_report(all_true_labels, all_predictions))

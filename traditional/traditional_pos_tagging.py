@@ -2,6 +2,9 @@ import numpy as np
 from collections import defaultdict
 from sklearn.metrics import precision_recall_fscore_support
 
+# Import the training data from training_data_pos.py
+from training_data_pos import training_data
+
 class HiddenMarkovModel:
     def __init__(self):
         # Initialize sets and probability dictionaries for Hidden Markov Model components
@@ -89,24 +92,11 @@ class HiddenMarkovModel:
         return accuracy, precision, recall, f1
 
 
-# Training data about Philippines
-training_data = [
-    [('Manila', 'NOUN'), ('is', 'VERB'), ('the', 'DET'), ('capital', 'NOUN'), ('of', 'NOUN'), ('Philippines', 'NOUN')],
-    [('Cebu', 'NOUN'), ('attracts', 'VERB'), ('many', 'ADJ'), ('tourists', 'NOUN'), ('annually', 'ADV')],
-    [('The', 'DET'), ('Filipino', 'ADJ'), ('cuisine', 'NOUN'), ('features', 'VERB'), ('tropical', 'ADJ'), ('fruits', 'NOUN')],
-    [('Boracay', 'NOUN'), ('has', 'VERB'), ('beautiful', 'ADJ'), ('white', 'ADJ'), ('beaches', 'NOUN')],
-    [('Tagalog', 'NOUN'), ('is', 'VERB'), ('an', 'DET'), ('official', 'ADJ'), ('language', 'NOUN')],
-    [('President', 'NOUN'), ('Marcos', 'NOUN'), ('governs', 'VERB'), ('the', 'DET'), ('country', 'NOUN')],
-    [('Jeepneys', 'NOUN'), ('provide', 'VERB'), ('unique', 'ADJ'), ('transportation', 'NOUN'), ('options', 'NOUN')],
-    [('Manny', 'NOUN'), ('Pacquiao', 'NOUN'), ('represented', 'VERB'), ('Filipino', 'ADJ'), ('boxing', 'NOUN'), ('internationally', 'ADV')]
-]
-
-# Create and train the model
+# Create and train the model using the imported training data
 model = HiddenMarkovModel()
 model.train(training_data)
 
-# Test sentences about Philippines (words must be from training set)
-# Test sentences about Philippines (words must be from training set)
+# Test sentences
 sentence1 = ['Manila', 'is', 'the', 'capital']  # Words are in vocab
 sentence2 = ['Cebu', 'attracts', 'many', 'tourists']  # Words are in vocab
 sentence3 = ['Manila', 'hosts', 'many', 'cultural']  # Words are in vocab
@@ -135,9 +125,12 @@ tags3 = model.viterbi(sentence3)
 
 print("Sentence 1:", sentence1)
 print("Predicted:", tags1)
+print("True tags:", true_tags1)
 
 print("Sentence 2:", sentence2)
 print("Predicted:", tags2)
+print("True tags:", true_tags2)
 
 print("Sentence 3:", sentence3)
 print("Predicted:", tags3)
+print("True tags:", true_tags3)
